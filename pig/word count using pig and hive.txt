@@ -1,0 +1,41 @@
+-----------
+Wordcount using pig:
+-----------
+lines = LOAD '/user/hadoop/HDFS_File.txt' AS (line:chararray);
+words = FOREACH lines GENERATE FLATTEN(TOKENIZE(line)) as word;
+grouped = GROUP words BY word;
+wordcount = FOREACH grouped GENERATE group, COUNT(words);
+DUMP wordcount;
+-----------
+Matrix multiplication using pig:
+-----------
+--This file multiplies mat1*mat2
+--The output has the same format as the two input matrices: (row,col,value)
+
+mat1 = LOAD 'matrix1.csv' USING PigStorage(',') AS (row,column,value:int);
+mat2 = LOAD 'matrix2.csv' USING PigStorage(',') AS (row,column,value:int);
+
+A = JOIN mat1 BY column FULL OUTER, mat2 BY row;
+B = FOREACH A GENERATE mat1::row AS m1r, mat2::column AS m2c, (mat1::value)*(mat2::value) AS value;
+C = GROUP B BY (m1r, m2c);
+
+multiplied = FOREACH C GENERATE group.$0 as row, group.$1 as column, SUM(B.value) AS value;
+
+STORE multiplied INTO 'product' USING PigStorage(',');
+----------------
+
+
+-----------
+Wordcount using hive:
+-----------
+SELECT word, COUNT(*) FROM input LATERAL VIEW explode(split(text, ' ')) lTable as word GROUP BY word;
+
+----------
+CREATE TABLE docs (line STRING);
+LOAD DATA INPATH 'text' OVERWRITE INTO TABLE docs;
+CREATE TABLE word_counts AS
+SELECT word, count(1) AS count FROM
+(SELECT explode(split(line, '\s')) AS word FROM docs) w
+GROUP BY word
+ORDER BY word;
+
